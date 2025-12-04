@@ -22,7 +22,10 @@ export type SignalingEventType =
   | 'admitted'
   | 'removed'
   | 'cancelled'
-  | 'queueUpdated';
+  | 'queueUpdated'
+  | 'offer'
+  | 'answer'
+  | 'ice-candidate';
 
 export interface SignalingEvent {
   type: SignalingEventType;
@@ -33,4 +36,8 @@ export interface SignalingEvent {
   deviceLabel?: string;
   nextParticipantId?: string;
   devices?: any[];
+  offer?: RTCSessionDescriptionInit;
+  answer?: RTCSessionDescriptionInit;
+  candidate?: RTCIceCandidate;
+  from?: string;
 }

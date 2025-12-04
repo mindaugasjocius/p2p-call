@@ -103,17 +103,18 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
     }, [localStream]);
 
     // Set up video element with stream (either local or current)
+    // Set up video element with stream (either local or current)
     useEffect(() => {
         const stream = currentStream || localStream;
         if (videoRef.current && stream) {
             videoRef.current.srcObject = stream;
-            console.log('Participant video element updated with stream');
+            console.log('Participant video element updated with stream. State:', state);
         }
         // Initialize currentStream with localStream if not set
         if (localStream && !currentStream) {
             setCurrentStream(localStream);
         }
-    }, [localStream, currentStream]);
+    }, [localStream, currentStream, state]);
 
     const switchDevice = async (videoDeviceId?: string, audioDeviceId?: string) => {
         console.log('Switching device...', { videoDeviceId, audioDeviceId });

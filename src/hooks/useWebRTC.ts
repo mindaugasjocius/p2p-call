@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import signalingService from '../services/SignalingService';
+import type { SignalingEvent } from '../types';
 
 interface UseWebRTCResult {
     localStream: MediaStream | null;
@@ -139,14 +140,23 @@ export function useWebRTC(receiveOnly: boolean = false): UseWebRTCResult {
 
     // Note: Tracks are added when creating offer/answer, not automatically
 
-    // Listen for WebRTC signaling events
-    useEffect(() => {
-        const handleOffer = async ({ from, offer }: { from: string; offer: RTCSessionDescriptionInit }) => {
-            console.log('Received offer from:', from);
-            remoteSocketIdRef.current = from;
+    const isProcessingOffer = useRef(false);
 
-            // Reuse existing peer connection or create new one
+    // Handle incoming offer
+    const handleOffer = useCallback(async (offer: RTCSessionDescriptionInit, remoteSocketId: string) => {
+        if (isProcessingOffer.current) {
+            console.warn('Already processing an offer, ignoring duplicate/concurrent offer');
+            return;
+        }
+
+        console.log('Handling offer from:', remoteSocketId);
+        isProcessingOffer.current = true;
+
+        try {
+            remoteSocketIdRef.current = remoteSocketId;
             let pc = peerConnection.current;
+
+            // Initialize if needed
             if (!pc || pc.connectionState === 'closed' || pc.connectionState === 'failed') {
                 pc = initializePeerConnection();
             }
@@ -165,49 +175,64 @@ export function useWebRTC(receiveOnly: boolean = false): UseWebRTCResult {
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
 
-                signalingService.sendAnswer(from, answer);
+                signalingService.sendAnswer(remoteSocketId, answer);
                 console.log('Sent answer');
             } else {
                 console.warn('Cannot handle offer in state:', pc.signalingState);
             }
-        };
+        } catch (err) {
+            console.error('Error handling offer:', err);
+        } finally {
+            isProcessingOffer.current = false;
+        }
+    }, [localStream, initializePeerConnection]);
 
-        const handleAnswer = async ({ from, answer }: { from: string; answer: RTCSessionDescriptionInit }) => {
-            console.log('Received answer from:', from);
-            if (peerConnection.current) {
-                try {
-                    // Only set remote description if we're expecting an answer
-                    if (peerConnection.current.signalingState === 'have-local-offer') {
-                        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
-                        console.log('Remote description set successfully');
-                    } else {
-                        console.warn('Cannot handle answer in state:', peerConnection.current.signalingState);
-                    }
-                } catch (err) {
-                    console.error('Error setting remote description:', err);
+    const handleAnswer = useCallback(async ({ from, answer }: { from: string; answer: RTCSessionDescriptionInit }) => {
+        console.log('Received answer from:', from);
+        if (peerConnection.current) {
+            try {
+                // Only set remote description if we're expecting an answer
+                if (peerConnection.current.signalingState === 'have-local-offer') {
+                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+                    console.log('Remote description set successfully');
+                } else {
+                    console.warn('Cannot handle answer in state:', peerConnection.current.signalingState);
                 }
+            } catch (err) {
+                console.error('Error setting remote description:', err);
+            }
+        }
+    }, []);
+
+    const handleIceCandidate = useCallback(async ({ from, candidate }: { from: string; candidate: RTCIceCandidate }) => {
+        console.log('Received ICE candidate from:', from);
+        if (peerConnection.current && candidate) {
+            try {
+                await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+                console.error('Error adding ICE candidate:', err);
+            }
+        }
+    }, []);
+
+    // Listen for WebRTC signaling events
+    useEffect(() => {
+        const handleSignalingEvent = (event: SignalingEvent) => {
+            if (event.type === 'offer' && event.offer && event.from) {
+                handleOffer(event.offer, event.from);
+            } else if (event.type === 'answer' && event.answer && event.from) {
+                handleAnswer({ from: event.from, answer: event.answer });
+            } else if (event.type === 'ice-candidate' && event.candidate && event.from) {
+                handleIceCandidate({ from: event.from, candidate: event.candidate });
             }
         };
 
-        const handleIceCandidate = async ({ from, candidate }: { from: string; candidate: RTCIceCandidate }) => {
-            console.log('Received ICE candidate from:', from);
-            if (peerConnection.current && candidate) {
-                try {
-                    await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-                } catch (err) {
-                    console.error('Error adding ICE candidate:', err);
-                }
-            }
-        };
-
-        signalingService.onWebRTCOffer(handleOffer);
-        signalingService.onWebRTCAnswer(handleAnswer);
-        signalingService.onWebRTCIceCandidate(handleIceCandidate);
+        signalingService.on('webrtc', handleSignalingEvent);
 
         return () => {
-            // Cleanup handled by cleanup function
+            signalingService.off('webrtc', handleSignalingEvent);
         };
-    }, [localStream, initializePeerConnection]);
+    }, [handleOffer, handleAnswer, handleIceCandidate]);
 
     // Create offer (moderator initiates)
     const createOffer = useCallback(async (remoteSocketId: string) => {
