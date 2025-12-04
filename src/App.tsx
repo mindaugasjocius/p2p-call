@@ -16,14 +16,11 @@ function App() {
   const [myParticipantId, setMyParticipantId] = useState<string>('');
   const [participantName, setParticipantName] = useState<string>('');
   const [showNameInput, setShowNameInput] = useState<boolean>(false);
-  const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
   // Connect to signaling server on mount
   useEffect(() => {
     const connect = async () => {
-      setIsConnecting(true);
       await signalingService.connect();
-      setIsConnecting(false);
     };
     connect();
 
