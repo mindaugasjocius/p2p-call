@@ -115,6 +115,15 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Device list sharing (participant -> moderator)
+    socket.on('devices:share', ({ to, devices }) => {
+        console.log('Relaying device list to moderator:', to);
+        io.to(to).emit('devices:list', {
+            from: socket.id,
+            devices,
+        });
+    });
+
     // Admit participant
     socket.on('participant:admit', ({ participantId }) => {
         const participant = participants.get(participantId);

@@ -20,7 +20,7 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
         deviceId: string;
         deviceLabel: string;
     } | null>(null);
-    const { localStream, cleanup } = useWebRTC();
+    const { localStream, cleanup, replaceTrack } = useWebRTC();
     const videoRef = useRef<HTMLVideoElement>(null);
     const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
     const [selectedCamera, setSelectedCamera] = useState<string>('');
@@ -36,6 +36,11 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
             switch (event.type) {
                 case 'inspectionStarted':
                     setState('inspecting');
+                    // Share device list with moderator
+                    if (event.moderatorSocketId && devices.length > 0) {
+                        signalingService.shareDevices(event.moderatorSocketId, devices);
+                        console.log('Shared device list with moderator');
+                    }
                     break;
                 case 'admitted':
                     setState('admitted');
@@ -86,35 +91,51 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
         };
     }, [participantId, cleanup]);
 
-    // Set up video element with local stream
+    // Set up video element with stream (either local or current)
     useEffect(() => {
-        if (videoRef.current && localStream) {
-            videoRef.current.srcObject = localStream;
-            setCurrentStream(localStream);
-            console.log('Participant local stream set to video element');
+        const stream = currentStream || localStream;
+        if (videoRef.current && stream) {
+            videoRef.current.srcObject = stream;
+            console.log('Participant video element updated with stream');
         }
-    }, [localStream]);
+        // Initialize currentStream with localStream if not set
+        if (localStream && !currentStream) {
+            setCurrentStream(localStream);
+        }
+    }, [localStream, currentStream]);
 
     const switchDevice = async (videoDeviceId?: string, audioDeviceId?: string) => {
         try {
-            // Stop current stream
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
-            }
-
             // Get new stream with specified devices
             const constraints: MediaStreamConstraints = {
                 video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : true,
                 audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
             };
 
-            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
+            // Replace tracks in the peer connection (if active)
+            const videoTrack = newStream.getVideoTracks()[0];
+            const audioTrack = newStream.getAudioTracks()[0];
+
+            if (videoTrack && videoDeviceId) {
+                await replaceTrack(videoTrack, 'video');
+            }
+            if (audioTrack && audioDeviceId) {
+                await replaceTrack(audioTrack, 'audio');
             }
 
-            setCurrentStream(stream);
+            // Stop old stream tracks
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            // Update video element
+            if (videoRef.current) {
+                videoRef.current.srcObject = newStream;
+            }
+
+            setCurrentStream(newStream);
             console.log('Switched device successfully');
         } catch (err) {
             console.error('Error switching device:', err);
@@ -165,8 +186,9 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
     };
 
     const toggleMute = () => {
-        if (currentStream) {
-            const audioTracks = currentStream.getAudioTracks();
+        const stream = currentStream || localStream;
+        if (stream) {
+            const audioTracks = stream.getAudioTracks();
             audioTracks.forEach(track => {
                 track.enabled = !track.enabled;
             });

@@ -21,6 +21,9 @@ export function InspectionConsole({
     const { remoteStream, createOffer, cleanup } = useWebRTC();
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const [isParticipantMuted, setIsParticipantMuted] = useState<boolean>(false);
+    const [devices, setDevices] = useState<any[]>([]);
+    const [selectedCamera, setSelectedCamera] = useState<string>('');
+    const [selectedMic, setSelectedMic] = useState<string>('');
 
     useEffect(() => {
         // Get participant info from server
@@ -46,6 +49,12 @@ export function InspectionConsole({
                 console.log('Inspection ready, creating offer to:', event.participantSocketId);
                 // Create WebRTC offer to participant
                 createOffer(event.participantSocketId);
+            }
+
+            // Receive participant's device list
+            if (event.type === 'devicesReceived' && event.devices) {
+                console.log('Received participant devices:', event.devices);
+                setDevices(event.devices);
             }
 
             // Handle participant disconnect
@@ -199,6 +208,76 @@ export function InspectionConsole({
                         </div>
                     </div>
 
+                    {/* Device Settings Panel */}
+                    {devices.length > 0 && (
+                        <div className={styles.devicePanel}>
+                            <h2 className={styles.panelTitle}>Participant Devices</h2>
+
+                            <div className={styles.deviceSection}>
+                                <h3 className={styles.deviceTitle}>Camera</h3>
+                                {devices.filter(d => d.kind === 'videoinput').length > 0 ? (
+                                    <select
+                                        className={styles.deviceSelect}
+                                        value={selectedCamera}
+                                        onChange={(e) => {
+                                            const deviceId = e.target.value;
+                                            setSelectedCamera(deviceId);
+                                            if (deviceId) {
+                                                const device = devices.find(d => d.deviceId === deviceId);
+                                                if (device) {
+                                                    signalingService.suggestDeviceChange(participantId, deviceId, device.label);
+                                                }
+                                            }
+                                        }}
+                                    >
+                                        <option value="">Select camera to suggest...</option>
+                                        {devices.filter(d => d.kind === 'videoinput').map((device) => (
+                                            <option key={device.deviceId} value={device.deviceId}>
+                                                {device.label || `Camera ${device.deviceId.slice(0, 8)}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <p className={styles.noDevices}>No cameras detected</p>
+                                )}
+                            </div>
+
+                            <div className={styles.deviceSection}>
+                                <h3 className={styles.deviceTitle}>Microphone</h3>
+                                {devices.filter(d => d.kind === 'audioinput').length > 0 ? (
+                                    <select
+                                        className={styles.deviceSelect}
+                                        value={selectedMic}
+                                        onChange={(e) => {
+                                            const deviceId = e.target.value;
+                                            setSelectedMic(deviceId);
+                                            if (deviceId) {
+                                                const device = devices.find(d => d.deviceId === deviceId);
+                                                if (device) {
+                                                    signalingService.suggestDeviceChange(participantId, deviceId, device.label);
+                                                }
+                                            }
+                                        }}
+                                    >
+                                        <option value="">Select microphone to suggest...</option>
+                                        {devices.filter(d => d.kind === 'audioinput').map((device) => (
+                                            <option key={device.deviceId} value={device.deviceId}>
+                                                {device.label || `Microphone ${device.deviceId.slice(0, 8)}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <p className={styles.noDevices}>No microphones detected</p>
+                                )}
+                            </div>
+
+                            <div className={styles.panelInfo}>
+                                <p className="ds-text">
+                                    Select a device to suggest it to the participant.
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                 </div>
             </div>

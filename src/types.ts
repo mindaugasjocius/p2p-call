@@ -18,6 +18,7 @@ export type SignalingEventType =
   | 'inspectionStarted'
   | 'inspectionReady'
   | 'deviceSuggestion'
+  | 'devicesReceived'
   | 'admitted'
   | 'removed'
   | 'cancelled'
@@ -27,7 +28,9 @@ export interface SignalingEvent {
   type: SignalingEventType;
   participantId?: string;
   participantSocketId?: string;
+  moderatorSocketId?: string;
   deviceId?: string;
   deviceLabel?: string;
   nextParticipantId?: string;
+  devices?: any[];
 }

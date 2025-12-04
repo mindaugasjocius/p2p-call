@@ -75,6 +75,7 @@ class SignalingService {
         this.socket.on('inspection:started', ({ moderatorSocketId }: { moderatorSocketId: string }) => {
             this.emitLocal('participant', {
                 type: 'inspectionStarted',
+                moderatorSocketId,
             });
             // Store moderator socket ID for WebRTC
             (this as any).moderatorSocketId = moderatorSocketId;
@@ -113,6 +114,15 @@ class SignalingService {
                 type: 'deviceSuggestion',
                 deviceId,
                 deviceLabel,
+            });
+        });
+
+        // Device list from participant
+        this.socket.on('devices:list', ({ from, devices }: { from: string; devices: any[] }) => {
+            this.emitLocal('moderator', {
+                type: 'devicesReceived',
+                participantSocketId: from,
+                devices,
             });
         });
     }
@@ -224,6 +234,19 @@ class SignalingService {
     suggestDeviceChange(participantId: string, deviceId: string, deviceLabel: string): void {
         if (!this.socket) return;
         this.socket.emit('device:suggest', { participantId, deviceId, deviceLabel });
+    }
+
+    // Share device list with moderator
+    shareDevices(to: string, devices: MediaDeviceInfo[]): void {
+        if (!this.socket) return;
+        // Send serializable device info
+        const deviceList = devices.map(d => ({
+            deviceId: d.deviceId,
+            kind: d.kind,
+            label: d.label,
+            groupId: d.groupId
+        }));
+        this.socket.emit('devices:share', { to, devices: deviceList });
     }
 
     // WebRTC signaling

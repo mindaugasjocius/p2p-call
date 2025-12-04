@@ -6,6 +6,7 @@ interface UseWebRTCResult {
     remoteStream: MediaStream | null;
     createOffer: (remoteSocketId: string) => Promise<void>;
     createAnswer: (remoteSocketId: string, offer: RTCSessionDescriptionInit) => Promise<void>;
+    replaceTrack: (newTrack: MediaStreamTrack, kind: 'audio' | 'video') => Promise<void>;
     cleanup: () => void;
 }
 
@@ -113,16 +114,8 @@ export function useWebRTC(): UseWebRTCResult {
         };
     }, []);
 
-    // Add local stream to peer connection when available
-    useEffect(() => {
-        if (localStream && peerConnection.current) {
-            localStream.getTracks().forEach((track) => {
-                peerConnection.current!.addTrack(track, localStream);
-                console.log('Added track to peer connection:', track.kind, track.enabled);
-            });
-            console.log('Added local stream to peer connection');
-        }
-    }, [localStream]);
+
+    // Note: Tracks are added when creating offer/answer, not automatically
 
     // Listen for WebRTC signaling events
     useEffect(() => {
@@ -130,27 +123,43 @@ export function useWebRTC(): UseWebRTCResult {
             console.log('Received offer from:', from);
             remoteSocketIdRef.current = from;
 
-            const pc = initializePeerConnection();
+            // Reuse existing peer connection or create new one
+            let pc = peerConnection.current;
+            if (!pc || pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+                pc = initializePeerConnection();
+            }
 
-            // Add local stream if available
-            if (localStream) {
+            // Add local stream if available and not already added
+            if (localStream && pc.getSenders().length === 0) {
                 localStream.getTracks().forEach((track) => {
-                    pc.addTrack(track, localStream);
+                    pc!.addTrack(track, localStream);
+                    console.log('Added track to peer connection:', track.kind);
                 });
             }
 
-            await pc.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
+            // Only set remote description if we're in the right state
+            if (pc.signalingState === 'stable' || pc.signalingState === 'have-local-offer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
 
-            signalingService.sendAnswer(from, answer);
-            console.log('Sent answer');
+                signalingService.sendAnswer(from, answer);
+                console.log('Sent answer');
+            } else {
+                console.warn('Cannot handle offer in state:', pc.signalingState);
+            }
         };
 
         const handleAnswer = async ({ from, answer }: { from: string; answer: RTCSessionDescriptionInit }) => {
             console.log('Received answer from:', from);
             if (peerConnection.current) {
-                await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+                // Only set remote description if we're expecting an answer
+                if (peerConnection.current.signalingState === 'have-local-offer') {
+                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+                    console.log('Remote description set successfully');
+                } else {
+                    console.warn('Cannot handle answer in state:', peerConnection.current.signalingState);
+                }
             }
         };
 
@@ -229,11 +238,30 @@ export function useWebRTC(): UseWebRTCResult {
         setRemoteStream(null);
     }, [localStream]);
 
+    // Replace track (for device switching)
+    const replaceTrack = useCallback(async (newTrack: MediaStreamTrack, kind: 'audio' | 'video') => {
+        if (!peerConnection.current) {
+            console.warn('No peer connection to replace track');
+            return;
+        }
+
+        const senders = peerConnection.current.getSenders();
+        const sender = senders.find(s => s.track?.kind === kind);
+
+        if (sender) {
+            await sender.replaceTrack(newTrack);
+            console.log(`Replaced ${kind} track successfully`);
+        } else {
+            console.warn(`No ${kind} sender found to replace track`);
+        }
+    }, []);
+
     return {
         localStream,
         remoteStream,
         createOffer,
         createAnswer,
+        replaceTrack,
         cleanup,
     };
 }
