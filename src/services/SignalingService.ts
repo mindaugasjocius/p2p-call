@@ -61,11 +61,8 @@ class SignalingService {
             });
         });
 
-        this.socket.on('queue:update', () => {
-            this.emitLocal('moderator', {
-                type: 'queueUpdated',
-            });
-        });
+        // NOTE: We don't listen to 'queue:update' here because it's handled
+        // explicitly in getQueue() and requestQueue() to prevent infinite loops
 
         this.socket.on('queue:next', (nextParticipant: Participant | null) => {
             this.emitLocal('moderator', {

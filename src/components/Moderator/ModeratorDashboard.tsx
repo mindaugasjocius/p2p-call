@@ -21,11 +21,17 @@ export function ModeratorDashboard({ onSelectParticipant }: ModeratorDashboardPr
             console.log('Queue loaded:', participants.length, 'participants');
         };
 
+        // Refresh queue (for polling, doesn't reconnect)
+        const refreshQueue = async () => {
+            const participants = await signalingService.requestQueue();
+            setQueue(participants);
+        };
+
         loadQueue();
 
         // Poll for updates every 5 seconds as backup (only if events fail)
         const pollInterval = setInterval(() => {
-            loadQueue();
+            refreshQueue();
         }, 5000);
 
         // Listen for queue updates - just update state directly, don't refetch
@@ -33,7 +39,7 @@ export function ModeratorDashboard({ onSelectParticipant }: ModeratorDashboardPr
             console.log('Moderator dashboard received event:', event.type);
             if (event.type === 'queueUpdated' || event.type === 'participantJoined') {
                 // Reload queue on real events
-                loadQueue();
+                refreshQueue();
             }
         };
 
