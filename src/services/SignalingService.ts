@@ -125,6 +125,34 @@ class SignalingService {
                 devices,
             });
         });
+
+        // WebRTC Signaling - Emit to local listeners
+        this.socket.on('webrtc:offer', ({ offer, from }: { offer: RTCSessionDescriptionInit; from: string }) => {
+            console.log('SignalingService: Received offer from', from);
+            this.emitLocal('webrtc', {
+                type: 'offer',
+                offer,
+                from,
+            });
+        });
+
+        this.socket.on('webrtc:answer', ({ answer, from }: { answer: RTCSessionDescriptionInit; from: string }) => {
+            console.log('SignalingService: Received answer from', from);
+            this.emitLocal('webrtc', {
+                type: 'answer',
+                answer,
+                from,
+            });
+        });
+
+        this.socket.on('webrtc:ice-candidate', ({ candidate, from }: { candidate: RTCIceCandidate; from: string }) => {
+            console.log('SignalingService: Received ICE candidate from', from);
+            this.emitLocal('webrtc', {
+                type: 'ice-candidate',
+                candidate,
+                from,
+            });
+        });
     }
 
     getSocket(): Socket | null {
