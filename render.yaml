@@ -1,0 +1,12 @@
+services:
+  # The Signaling Server (Backend)
+  - type: web
+    name: p2p-signaling-server
+    env: node
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: PORT
+        value: 10000
+    autoDeploy: false

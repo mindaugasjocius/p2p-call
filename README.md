@@ -126,7 +126,8 @@ All styles are modular CSS (`*.module.css`). You can easily replace them with Ta
 ## 🛠 Troubleshooting
 
 *   **Black Screen?** Ensure you are not trying to access the same camera from two tabs on the same browser. Use different devices or a virtual camera.
-*   **Connection Failed?** Check if the signaling server is reachable. If testing on mobile, ensure you are using the local IP (e.g., `192.168.x.x`) and not `localhost`.
+*   **Connection Failed?** Check if the signaling server is reachable.
+    *   **Vercel Error**: If you see `WebSocket connection to 'wss://...vercel.app/...' failed`, it means you haven't deployed the backend separately. Vercel only hosts the frontend. You must deploy the `/server` folder to Render/Railway and update `VITE_SIGNALING_SERVER_URL`.
 *   **Permissions Error?** Browsers require HTTPS for camera access on non-localhost domains. Use a tunneling service (like ngrok) or setup local HTTPS for testing on mobile.
 
 ## 📄 License
