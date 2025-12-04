@@ -56,22 +56,30 @@ export function useWebRTC(receiveOnly: boolean = false): UseWebRTCResult {
 
         // Handle connection state changes
         pc.onconnectionstatechange = () => {
-            console.log('Connection state:', pc.connectionState);
+            console.log('Connection state changed:', pc.connectionState);
 
             // Clean up remote stream if connection fails or closes
             if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
-                console.log('Connection lost, cleaning up remote stream');
+                console.warn('Connection lost/closed/failed, cleaning up remote stream');
                 setRemoteStream(null);
             }
         };
 
         pc.oniceconnectionstatechange = () => {
-            console.log('ICE connection state:', pc.iceConnectionState);
+            console.log('ICE connection state changed:', pc.iceConnectionState);
 
             // Additional disconnect detection via ICE state
             if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-                console.log('ICE connection lost');
+                console.warn('ICE connection lost/failed');
             }
+        };
+
+        pc.onsignalingstatechange = () => {
+            console.log('Signaling state changed:', pc.signalingState);
+        };
+
+        pc.onnegotiationneeded = () => {
+            console.log('Negotiation needed triggered');
         };
 
         return pc;
@@ -261,19 +269,32 @@ export function useWebRTC(receiveOnly: boolean = false): UseWebRTCResult {
 
     // Replace track (for device switching)
     const replaceTrack = useCallback(async (newTrack: MediaStreamTrack, kind: 'audio' | 'video') => {
+        console.log(`Attempting to replace ${kind} track with new track:`, newTrack.id, newTrack.label);
+
         if (!peerConnection.current) {
             console.warn('No peer connection to replace track');
             return;
         }
 
         const senders = peerConnection.current.getSenders();
+        console.log('Current senders:', senders.map(s => ({
+            trackId: s.track?.id,
+            kind: s.track?.kind,
+            type: s.track?.kind
+        })));
+
         const sender = senders.find(s => s.track?.kind === kind);
 
         if (sender) {
-            await sender.replaceTrack(newTrack);
-            console.log(`Replaced ${kind} track successfully`);
+            try {
+                console.log(`Found sender for ${kind}, replacing track...`);
+                await sender.replaceTrack(newTrack);
+                console.log(`Replaced ${kind} track successfully. New track enabled: ${newTrack.enabled}, state: ${newTrack.readyState}`);
+            } catch (err) {
+                console.error(`Error replacing ${kind} track:`, err);
+            }
         } else {
-            console.warn(`No ${kind} sender found to replace track`);
+            console.warn(`No ${kind} sender found to replace track. Senders available:`, senders.length);
         }
     }, []);
 

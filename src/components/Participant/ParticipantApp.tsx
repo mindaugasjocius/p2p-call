@@ -111,6 +111,7 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
     }, [localStream, currentStream]);
 
     const switchDevice = async (videoDeviceId?: string, audioDeviceId?: string) => {
+        console.log('Switching device...', { videoDeviceId, audioDeviceId });
         try {
             // Get new stream with specified devices
             const constraints: MediaStreamConstraints = {
@@ -118,26 +119,32 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
                 audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
             };
 
+            console.log('Requesting new stream with constraints:', constraints);
             const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+            console.log('Got new stream:', newStream.id);
 
             // Replace tracks in the peer connection (if active)
             const videoTrack = newStream.getVideoTracks()[0];
             const audioTrack = newStream.getAudioTracks()[0];
 
             if (videoTrack && videoDeviceId) {
+                console.log('Replacing video track:', videoTrack.id);
                 await replaceTrack(videoTrack, 'video');
             }
             if (audioTrack && audioDeviceId) {
+                console.log('Replacing audio track:', audioTrack.id);
                 await replaceTrack(audioTrack, 'audio');
             }
 
             // Stop old stream tracks
             if (currentStream) {
+                console.log('Stopping old stream tracks:', currentStream.id);
                 currentStream.getTracks().forEach(track => track.stop());
             }
 
             // Update video element
             if (videoRef.current) {
+                console.log('Updating video element srcObject to new stream');
                 videoRef.current.srcObject = newStream;
             }
 
