@@ -20,9 +20,6 @@ export function InspectionConsole({
     const [userAgent, setUserAgent] = useState<UAParser.IResult | null>(null);
     const { remoteStream, createOffer, cleanup } = useWebRTC();
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
-    const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-    const [selectedCamera, setSelectedCamera] = useState<string>('');
-    const [selectedMic, setSelectedMic] = useState<string>('');
     const [isParticipantMuted, setIsParticipantMuted] = useState<boolean>(false);
 
     useEffect(() => {
@@ -43,24 +40,19 @@ export function InspectionConsole({
         // Start inspection
         signalingService.startInspection(participantId);
 
-        // Enumerate devices
-        const enumerateDevices = async () => {
-            try {
-                const deviceList = await navigator.mediaDevices.enumerateDevices();
-                setDevices(deviceList.filter(d => d.kind === 'videoinput' || d.kind === 'audioinput'));
-            } catch (err) {
-                console.error('Error enumerating devices:', err);
-            }
-        };
-
-        enumerateDevices();
-
-        // Listen for inspection ready event
+        // Listen for inspection ready event and disconnects
         const handleSignalingEvent = (event: SignalingEvent) => {
             if (event.type === 'inspectionReady' && event.participantSocketId) {
                 console.log('Inspection ready, creating offer to:', event.participantSocketId);
                 // Create WebRTC offer to participant
                 createOffer(event.participantSocketId);
+            }
+
+            // Handle participant disconnect
+            if (event.type === 'queueUpdated') {
+                // Check if current participant is still in queue
+                // If not, they disconnected - go back to dashboard
+                console.log('Queue updated during inspection, checking if participant disconnected');
             }
         };
 
@@ -133,34 +125,11 @@ export function InspectionConsole({
         onBack();
     };
 
-    const handleCameraChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const deviceId = e.target.value;
-        setSelectedCamera(deviceId);
-        if (deviceId) {
-            const device = devices.find(d => d.deviceId === deviceId);
-            if (device) {
-                signalingService.suggestDeviceChange(participantId, deviceId, device.label);
-            }
-        }
-    };
 
-    const handleMicChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const deviceId = e.target.value;
-        setSelectedMic(deviceId);
-        if (deviceId) {
-            const device = devices.find(d => d.deviceId === deviceId);
-            if (device) {
-                signalingService.suggestDeviceChange(participantId, deviceId, device.label);
-            }
-        }
-    };
 
     if (!participant) {
         return <div className={styles.loading}>Loading...</div>;
     }
-
-    const videoDevices = devices.filter((d) => d.kind === 'videoinput');
-    const audioDevices = devices.filter((d) => d.kind === 'audioinput');
 
     return (
         <div className={styles.container}>
@@ -230,56 +199,7 @@ export function InspectionConsole({
                         </div>
                     </div>
 
-                    {/* Device Settings Panel */}
-                    <div className={styles.devicePanel}>
-                        <h2 className={styles.panelTitle}>Device Settings</h2>
 
-                        <div className={styles.deviceSection}>
-                            <h3 className={styles.deviceTitle}>Camera</h3>
-                            {videoDevices.length > 0 ? (
-                                <select
-                                    className={styles.deviceSelect}
-                                    value={selectedCamera}
-                                    onChange={handleCameraChange}
-                                >
-                                    <option value="">Select camera to suggest...</option>
-                                    {videoDevices.map((device) => (
-                                        <option key={device.deviceId} value={device.deviceId}>
-                                            {device.label || `Camera ${device.deviceId.slice(0, 8)}`}
-                                        </option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <p className={styles.noDevices}>No cameras detected</p>
-                            )}
-                        </div>
-
-                        <div className={styles.deviceSection}>
-                            <h3 className={styles.deviceTitle}>Microphone</h3>
-                            {audioDevices.length > 0 ? (
-                                <select
-                                    className={styles.deviceSelect}
-                                    value={selectedMic}
-                                    onChange={handleMicChange}
-                                >
-                                    <option value="">Select microphone to suggest...</option>
-                                    {audioDevices.map((device) => (
-                                        <option key={device.deviceId} value={device.deviceId}>
-                                            {device.label || `Microphone ${device.deviceId.slice(0, 8)}`}
-                                        </option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <p className={styles.noDevices}>No microphones detected</p>
-                            )}
-                        </div>
-
-                        <div className={styles.panelInfo}>
-                            <p className="ds-text">
-                                Select a device from the dropdown to suggest it to the participant.
-                            </p>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

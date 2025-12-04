@@ -62,10 +62,21 @@ export function useWebRTC(): UseWebRTCResult {
         // Handle connection state changes
         pc.onconnectionstatechange = () => {
             console.log('Connection state:', pc.connectionState);
+
+            // Clean up remote stream if connection fails or closes
+            if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
+                console.log('Connection lost, cleaning up remote stream');
+                setRemoteStream(null);
+            }
         };
 
         pc.oniceconnectionstatechange = () => {
             console.log('ICE connection state:', pc.iceConnectionState);
+
+            // Additional disconnect detection via ICE state
+            if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+                console.log('ICE connection lost');
+            }
         };
 
         return pc;

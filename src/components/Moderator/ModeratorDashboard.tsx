@@ -21,10 +21,10 @@ export function ModeratorDashboard({ onSelectParticipant }: ModeratorDashboardPr
 
         loadQueue();
 
-        // Poll for updates every 2 seconds as backup
+        // Poll for updates every 5 seconds as backup
         const pollInterval = setInterval(() => {
             loadQueue();
-        }, 2000);
+        }, 5000);
 
         // Listen for queue updates
         const handleSignalingEvent = (event: SignalingEvent) => {
