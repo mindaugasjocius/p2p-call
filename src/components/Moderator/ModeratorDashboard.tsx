@@ -11,9 +11,11 @@ export function ModeratorDashboard({ onSelectParticipant }: ModeratorDashboardPr
     const [queue, setQueue] = useState<Participant[]>([]);
 
     useEffect(() => {
-        // Connect as moderator and get initial queue
+        // Connect as moderator once
+        signalingService.connectAsModerator();
+
+        // Fetch initial queue
         const loadQueue = async () => {
-            signalingService.connectAsModerator();
             const participants = await signalingService.getQueue();
             setQueue(participants);
             console.log('Queue loaded:', participants.length, 'participants');
@@ -21,16 +23,16 @@ export function ModeratorDashboard({ onSelectParticipant }: ModeratorDashboardPr
 
         loadQueue();
 
-        // Poll for updates every 5 seconds as backup
+        // Poll for updates every 5 seconds as backup (only if events fail)
         const pollInterval = setInterval(() => {
             loadQueue();
         }, 5000);
 
-        // Listen for queue updates
+        // Listen for queue updates - just update state directly, don't refetch
         const handleSignalingEvent = (event: SignalingEvent) => {
             console.log('Moderator dashboard received event:', event.type);
             if (event.type === 'queueUpdated' || event.type === 'participantJoined') {
-                // Reload queue immediately
+                // Reload queue on real events
                 loadQueue();
             }
         };

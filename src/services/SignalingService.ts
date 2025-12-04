@@ -170,6 +170,23 @@ class SignalingService {
         });
     }
 
+    // Request queue without reconnecting (prevents infinite loop)
+    async requestQueue(): Promise<Participant[]> {
+        return new Promise((resolve) => {
+            if (!this.socket) {
+                resolve([]);
+                return;
+            }
+
+            this.socket.once('queue:update', (participants: Participant[]) => {
+                resolve(participants.filter((p) => p.status === 'waiting'));
+            });
+
+            // Just request queue, don't reconnect
+            this.socket.emit('queue:request');
+        });
+    }
+
     // Participant joins
     joinAsParticipant(participant: Omit<Participant, 'status'>): void {
         if (!this.socket) return;

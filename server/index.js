@@ -62,6 +62,12 @@ io.on('connection', (socket) => {
         socket.emit('queue:update', Array.from(participants.values()));
     });
 
+    // Request queue (without reconnecting)
+    socket.on('queue:request', () => {
+        // Just send queue, don't add to moderators again
+        socket.emit('queue:update', Array.from(participants.values()));
+    });
+
     // Start inspection
     socket.on('inspection:start', ({ participantId }) => {
         const participant = participants.get(participantId);
