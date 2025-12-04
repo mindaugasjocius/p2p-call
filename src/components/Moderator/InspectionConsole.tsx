@@ -1,0 +1,287 @@
+import { useState, useEffect, useRef } from 'react';
+import { useWebRTC } from '../../hooks/useWebRTC';
+import signalingService from '../../services/SignalingService';
+import type { Participant, SignalingEvent } from '../../types';
+import { UAParser } from 'ua-parser-js';
+import styles from './InspectionConsole.module.css';
+
+interface InspectionConsoleProps {
+    participantId: string;
+    onBack: () => void;
+    onAutoAdvance: (nextParticipantId: string) => void;
+}
+
+export function InspectionConsole({
+    participantId,
+    onBack,
+    onAutoAdvance,
+}: InspectionConsoleProps) {
+    const [participant, setParticipant] = useState<Participant | null>(null);
+    const [userAgent, setUserAgent] = useState<UAParser.IResult | null>(null);
+    const { remoteStream, createOffer, cleanup } = useWebRTC();
+    const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+    const [selectedCamera, setSelectedCamera] = useState<string>('');
+    const [selectedMic, setSelectedMic] = useState<string>('');
+    const [isParticipantMuted, setIsParticipantMuted] = useState<boolean>(false);
+
+    useEffect(() => {
+        // Get participant info from server
+        const loadParticipant = async () => {
+            const parser = new UAParser();
+            setUserAgent(parser.getResult());
+
+            setParticipant({
+                id: participantId,
+                name: 'Participant',
+                status: 'inspecting',
+            });
+        };
+
+        loadParticipant();
+
+        // Start inspection
+        signalingService.startInspection(participantId);
+
+        // Enumerate devices
+        const enumerateDevices = async () => {
+            try {
+                const deviceList = await navigator.mediaDevices.enumerateDevices();
+                setDevices(deviceList.filter(d => d.kind === 'videoinput' || d.kind === 'audioinput'));
+            } catch (err) {
+                console.error('Error enumerating devices:', err);
+            }
+        };
+
+        enumerateDevices();
+
+        // Listen for inspection ready event
+        const handleSignalingEvent = (event: SignalingEvent) => {
+            if (event.type === 'inspectionReady' && event.participantSocketId) {
+                console.log('Inspection ready, creating offer to:', event.participantSocketId);
+                // Create WebRTC offer to participant
+                createOffer(event.participantSocketId);
+            }
+        };
+
+        signalingService.on('moderator', handleSignalingEvent);
+
+        return () => {
+            signalingService.off('moderator', handleSignalingEvent);
+            cleanup();
+        };
+    }, [participantId, createOffer, cleanup]);
+
+    // Set up remote video element
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+            console.log('Moderator: Remote stream set to video element');
+        }
+    }, [remoteStream]);
+
+    const toggleParticipantMute = () => {
+        if (remoteStream) {
+            const audioTracks = remoteStream.getAudioTracks();
+            audioTracks.forEach(track => {
+                track.enabled = !track.enabled;
+            });
+            setIsParticipantMuted(!isParticipantMuted);
+            console.log('Participant audio', isParticipantMuted ? 'unmuted' : 'muted');
+        }
+    };
+
+    const handleAdmit = async () => {
+        signalingService.admitParticipant(participantId);
+
+        // Listen for next participant
+        const handleNext = (event: SignalingEvent) => {
+            if (event.type === 'queueUpdated') {
+                if (event.nextParticipantId) {
+                    onAutoAdvance(event.nextParticipantId);
+                } else {
+                    onBack();
+                }
+                signalingService.off('moderator', handleNext);
+            }
+        };
+
+        signalingService.on('moderator', handleNext);
+    };
+
+    const handleRemove = async () => {
+        signalingService.removeParticipant(participantId);
+
+        // Listen for next participant
+        const handleNext = (event: SignalingEvent) => {
+            if (event.type === 'queueUpdated') {
+                if (event.nextParticipantId) {
+                    onAutoAdvance(event.nextParticipantId);
+                } else {
+                    onBack();
+                }
+                signalingService.off('moderator', handleNext);
+            }
+        };
+
+        signalingService.on('moderator', handleNext);
+    };
+
+    const handleCancel = () => {
+        signalingService.cancelInspection(participantId);
+        cleanup();
+        onBack();
+    };
+
+    const handleCameraChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const deviceId = e.target.value;
+        setSelectedCamera(deviceId);
+        if (deviceId) {
+            const device = devices.find(d => d.deviceId === deviceId);
+            if (device) {
+                signalingService.suggestDeviceChange(participantId, deviceId, device.label);
+            }
+        }
+    };
+
+    const handleMicChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const deviceId = e.target.value;
+        setSelectedMic(deviceId);
+        if (deviceId) {
+            const device = devices.find(d => d.deviceId === deviceId);
+            if (device) {
+                signalingService.suggestDeviceChange(participantId, deviceId, device.label);
+            }
+        }
+    };
+
+    if (!participant) {
+        return <div className={styles.loading}>Loading...</div>;
+    }
+
+    const videoDevices = devices.filter((d) => d.kind === 'videoinput');
+    const audioDevices = devices.filter((d) => d.kind === 'audioinput');
+
+    return (
+        <div className={styles.container}>
+            <div className={styles.console}>
+                <header className={styles.header}>
+                    <h1 className="ds-heading">Inspection Console</h1>
+                    <button className="ds-button ds-button-secondary" onClick={handleCancel}>
+                        Cancel
+                    </button>
+                </header>
+
+                <div className={styles.content}>
+                    {/* Video Feed */}
+                    <div className={styles.videoSection}>
+                        <div className={styles.videoContainer}>
+                            <video
+                                ref={remoteVideoRef}
+                                autoPlay
+                                playsInline
+                                className={styles.video}
+                            />
+
+                            {/* User Info Overlay */}
+                            <div className={styles.userInfo}>
+                                <h3 className={styles.participantName}>{participant.name}</h3>
+                                <div className={styles.infoGrid}>
+                                    <div className={styles.infoItem}>
+                                        <strong>Browser:</strong> {userAgent?.browser.name} {userAgent?.browser.version}
+                                    </div>
+                                    <div className={styles.infoItem}>
+                                        <strong>OS:</strong> {userAgent?.os.name} {userAgent?.os.version}
+                                    </div>
+                                    <div className={styles.infoItem}>
+                                        <strong>Device:</strong> {userAgent?.device.type || 'Desktop'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Moderator Mute Button */}
+                            <button
+                                className={`${styles.muteButton} ${isParticipantMuted ? styles.muted : ''}`}
+                                onClick={toggleParticipantMute}
+                                title={isParticipantMuted ? 'Unmute Participant' : 'Mute Participant'}
+                            >
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                                    {isParticipantMuted && <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" strokeWidth="2" />}
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Controls */}
+                        <div className={styles.controls}>
+                            <button
+                                className="ds-button ds-button-success"
+                                onClick={handleAdmit}
+                            >
+                                ✓ Admit
+                            </button>
+                            <button
+                                className="ds-button ds-button-danger"
+                                onClick={handleRemove}
+                            >
+                                ✕ Remove
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Device Settings Panel */}
+                    <div className={styles.devicePanel}>
+                        <h2 className={styles.panelTitle}>Device Settings</h2>
+
+                        <div className={styles.deviceSection}>
+                            <h3 className={styles.deviceTitle}>Camera</h3>
+                            {videoDevices.length > 0 ? (
+                                <select
+                                    className={styles.deviceSelect}
+                                    value={selectedCamera}
+                                    onChange={handleCameraChange}
+                                >
+                                    <option value="">Select camera to suggest...</option>
+                                    {videoDevices.map((device) => (
+                                        <option key={device.deviceId} value={device.deviceId}>
+                                            {device.label || `Camera ${device.deviceId.slice(0, 8)}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <p className={styles.noDevices}>No cameras detected</p>
+                            )}
+                        </div>
+
+                        <div className={styles.deviceSection}>
+                            <h3 className={styles.deviceTitle}>Microphone</h3>
+                            {audioDevices.length > 0 ? (
+                                <select
+                                    className={styles.deviceSelect}
+                                    value={selectedMic}
+                                    onChange={handleMicChange}
+                                >
+                                    <option value="">Select microphone to suggest...</option>
+                                    {audioDevices.map((device) => (
+                                        <option key={device.deviceId} value={device.deviceId}>
+                                            {device.label || `Microphone ${device.deviceId.slice(0, 8)}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <p className={styles.noDevices}>No microphones detected</p>
+                            )}
+                        </div>
+
+                        <div className={styles.panelInfo}>
+                            <p className="ds-text">
+                                Select a device from the dropdown to suggest it to the participant.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

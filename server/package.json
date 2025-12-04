@@ -1,0 +1,16 @@
+{
+    "name": "p2p-signaling-server",
+    "version": "1.0.0",
+    "description": "WebRTC signaling server for P2P screening room",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "node index.js"
+    },
+    "dependencies": {
+        "socket.io": "^4.7.2",
+        "express": "^4.18.2",
+        "cors": "^2.8.5"
+    }
+}
