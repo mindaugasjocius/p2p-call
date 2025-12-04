@@ -87,11 +87,25 @@ export function useWebRTC(): UseWebRTCResult {
     useEffect(() => {
         const getLocalStream = async () => {
             try {
-                console.log('Requesting getUserMedia...');
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true,
+                console.log('Enumerating devices...');
+                // First, enumerate devices to get actual device IDs
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                const audioDevices = devices.filter(d => d.kind === 'audioinput');
+
+                console.log('Found devices:', {
+                    video: videoDevices.length,
+                    audio: audioDevices.length
                 });
+
+                // Use first available device instead of default
+                const constraints: MediaStreamConstraints = {
+                    video: videoDevices.length > 0 ? { deviceId: videoDevices[0].deviceId } : true,
+                    audio: audioDevices.length > 0 ? { deviceId: audioDevices[0].deviceId } : true,
+                };
+
+                console.log('Requesting getUserMedia with constraints:', constraints);
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 setLocalStream(stream);
                 console.log('Got local stream:', {
                     id: stream.id,
@@ -153,12 +167,16 @@ export function useWebRTC(): UseWebRTCResult {
         const handleAnswer = async ({ from, answer }: { from: string; answer: RTCSessionDescriptionInit }) => {
             console.log('Received answer from:', from);
             if (peerConnection.current) {
-                // Only set remote description if we're expecting an answer
-                if (peerConnection.current.signalingState === 'have-local-offer') {
-                    await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
-                    console.log('Remote description set successfully');
-                } else {
-                    console.warn('Cannot handle answer in state:', peerConnection.current.signalingState);
+                try {
+                    // Only set remote description if we're expecting an answer
+                    if (peerConnection.current.signalingState === 'have-local-offer') {
+                        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+                        console.log('Remote description set successfully');
+                    } else {
+                        console.warn('Cannot handle answer in state:', peerConnection.current.signalingState);
+                    }
+                } catch (err) {
+                    console.error('Error setting remote description:', err);
                 }
             }
         };

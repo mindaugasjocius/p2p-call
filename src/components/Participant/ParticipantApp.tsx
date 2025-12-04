@@ -70,18 +70,6 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
 
         signalingService.on('participant', handleSignalingEvent);
 
-        // Enumerate devices
-        const enumerateDevices = async () => {
-            try {
-                const deviceList = await navigator.mediaDevices.enumerateDevices();
-                setDevices(deviceList.filter(d => d.kind === 'videoinput' || d.kind === 'audioinput'));
-            } catch (err) {
-                console.error('Error enumerating devices:', err);
-            }
-        };
-
-        enumerateDevices();
-
         return () => {
             signalingService.off('participant', handleSignalingEvent);
             cleanup();
@@ -89,7 +77,25 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
                 currentStream.getTracks().forEach(track => track.stop());
             }
         };
-    }, [participantId, cleanup]);
+    }, [participantId, cleanup, currentStream, devices]);
+
+    // Enumerate devices AFTER permission is granted (when localStream is available)
+    useEffect(() => {
+        const enumerateDevices = async () => {
+            if (!localStream) return; // Wait for permission
+
+            try {
+                const deviceList = await navigator.mediaDevices.enumerateDevices();
+                const filteredDevices = deviceList.filter(d => d.kind === 'videoinput' || d.kind === 'audioinput');
+                setDevices(filteredDevices);
+                console.log('Enumerated devices after permission:', filteredDevices.length);
+            } catch (err) {
+                console.error('Error enumerating devices:', err);
+            }
+        };
+
+        enumerateDevices();
+    }, [localStream]);
 
     // Set up video element with stream (either local or current)
     useEffect(() => {

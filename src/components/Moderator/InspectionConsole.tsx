@@ -81,6 +81,17 @@ export function InspectionConsole({
         }
     }, [remoteStream]);
 
+    // Handle participant disconnect
+    useEffect(() => {
+        // If remote stream is lost (participant disconnected), go back to dashboard
+        if (remoteStream === null && remoteVideoRef.current?.srcObject) {
+            console.log('Participant disconnected, returning to dashboard');
+            setTimeout(() => {
+                onBack();
+            }, 2000); // Give 2 seconds to show "connection lost" message
+        }
+    }, [remoteStream, onBack]);
+
     const toggleParticipantMute = () => {
         if (remoteStream) {
             const audioTracks = remoteStream.getAudioTracks();
