@@ -214,7 +214,11 @@ export function useWebRTC(receiveOnly: boolean = false): UseWebRTCResult {
             });
         }
 
-        const offer = await pc.createOffer();
+        const offerOptions: RTCOfferOptions = {
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+        };
+        const offer = await pc.createOffer(offerOptions);
         await pc.setLocalDescription(offer);
 
         signalingService.sendOffer(remoteSocketId, offer);

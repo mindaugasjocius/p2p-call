@@ -56,6 +56,13 @@ export function InspectionConsole({
             if (event.type === 'devicesReceived' && event.devices) {
                 console.log('Received participant devices:', event.devices);
                 setDevices(event.devices);
+
+                // Auto-select first camera and microphone
+                const firstCamera = event.devices.find((d: any) => d.kind === 'videoinput');
+                const firstMic = event.devices.find((d: any) => d.kind === 'audioinput');
+
+                if (firstCamera) setSelectedCamera(firstCamera.deviceId);
+                if (firstMic) setSelectedMic(firstMic.deviceId);
             }
 
             // Handle participant disconnect
