@@ -16,16 +16,10 @@ const ICE_SERVERS = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        // Add TURN servers here:
-        // {
-        //   urls: 'turn:your-turn-server.com',
-        //   username: 'user',
-        //   credential: 'password'
-        // }
     ],
 };
 
-export function useWebRTC(): UseWebRTCResult {
+export function useWebRTC(receiveOnly: boolean = false): UseWebRTCResult {
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const peerConnection = useRef<RTCPeerConnection | null>(null);
@@ -83,8 +77,13 @@ export function useWebRTC(): UseWebRTCResult {
         return pc;
     }, []);
 
-    // Get local media stream
+    // Get local media stream (skip for receive-only mode like moderator)
     useEffect(() => {
+        if (receiveOnly) {
+            console.log('Receive-only mode: skipping getUserMedia');
+            return;
+        }
+
         const getLocalStream = async () => {
             try {
                 console.log('Enumerating devices...');
@@ -126,7 +125,7 @@ export function useWebRTC(): UseWebRTCResult {
                 localStream.getTracks().forEach((track) => track.stop());
             }
         };
-    }, []);
+    }, [receiveOnly]);
 
 
     // Note: Tracks are added when creating offer/answer, not automatically

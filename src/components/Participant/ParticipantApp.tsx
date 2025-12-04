@@ -264,7 +264,6 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
                                 value={selectedCamera}
                                 onChange={handleCameraChange}
                             >
-                                <option value="">Default Camera</option>
                                 {videoDevices.map((device) => (
                                     <option key={device.deviceId} value={device.deviceId}>
                                         {device.label || `Camera ${device.deviceId.slice(0, 8)}`}
@@ -280,7 +279,6 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
                                 value={selectedMic}
                                 onChange={handleMicChange}
                             >
-                                <option value="">Default Microphone</option>
                                 {audioDevices.map((device) => (
                                     <option key={device.deviceId} value={device.deviceId}>
                                         {device.label || `Microphone ${device.deviceId.slice(0, 8)}`}

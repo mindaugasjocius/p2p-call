@@ -18,7 +18,8 @@ export function InspectionConsole({
 }: InspectionConsoleProps) {
     const [participant, setParticipant] = useState<Participant | null>(null);
     const [userAgent, setUserAgent] = useState<UAParser.IResult | null>(null);
-    const { remoteStream, createOffer, cleanup } = useWebRTC();
+    // Use receive-only mode for moderator (don't request camera/mic)
+    const { remoteStream, createOffer, cleanup } = useWebRTC(true);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const [isParticipantMuted, setIsParticipantMuted] = useState<boolean>(false);
     const [devices, setDevices] = useState<any[]>([]);
