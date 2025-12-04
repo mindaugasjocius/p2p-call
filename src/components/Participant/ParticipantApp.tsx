@@ -20,7 +20,7 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
         deviceId: string;
         deviceLabel: string;
     } | null>(null);
-    const { localStream, cleanup, replaceTrack } = useWebRTC();
+    const { localStream, cleanup, replaceTrack, updateLocalStream } = useWebRTC();
     const videoRef = useRef<HTMLVideoElement>(null);
     const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
     const [selectedCamera, setSelectedCamera] = useState<string>('');
@@ -28,6 +28,7 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
     const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
     const [isMuted, setIsMuted] = useState<boolean>(false);
 
+    // Signaling effect - re-runs when dependencies change
     useEffect(() => {
         // Listen for signaling events
         const handleSignalingEvent = (event: SignalingEvent) => {
@@ -72,12 +73,16 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
 
         return () => {
             signalingService.off('participant', handleSignalingEvent);
-            cleanup();
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
-            }
         };
-    }, [participantId, cleanup, currentStream, devices]);
+    }, [participantId, devices, cleanup]);
+
+    // Cleanup effect - runs only on mount/unmount
+    useEffect(() => {
+        return () => {
+            console.log('ParticipantApp unmounting, cleaning up');
+            cleanup();
+        };
+    }, []);
 
     // Enumerate devices AFTER permission is granted (when localStream is available)
     useEffect(() => {
@@ -149,6 +154,7 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
             }
 
             setCurrentStream(newStream);
+            updateLocalStream(newStream);
             console.log('Switched device successfully');
         } catch (err) {
             console.error('Error switching device:', err);

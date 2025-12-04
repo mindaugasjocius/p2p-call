@@ -7,6 +7,7 @@ interface UseWebRTCResult {
     createOffer: (remoteSocketId: string) => Promise<void>;
     createAnswer: (remoteSocketId: string, offer: RTCSessionDescriptionInit) => Promise<void>;
     replaceTrack: (newTrack: MediaStreamTrack, kind: 'audio' | 'video') => Promise<void>;
+    updateLocalStream: (stream: MediaStream) => void;
     cleanup: () => void;
 }
 
@@ -304,6 +305,7 @@ export function useWebRTC(receiveOnly: boolean = false): UseWebRTCResult {
         createOffer,
         createAnswer,
         replaceTrack,
+        updateLocalStream: setLocalStream,
         cleanup,
     };
 }
