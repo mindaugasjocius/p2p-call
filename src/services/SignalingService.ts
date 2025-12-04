@@ -22,6 +22,12 @@ class SignalingService {
         return SignalingService.instance;
     }
 
+    /**
+     * Connects to the signaling server.
+     * INTEGRATION POINT: Replace this with your own authentication/connection logic.
+     * You might want to pass an auth token here:
+     * io(SERVER_URL, { auth: { token: '...' } })
+     */
     connect(): Promise<void> {
         return new Promise((resolve) => {
             if (this.socket?.connected) {
@@ -30,7 +36,8 @@ class SignalingService {
             }
 
             this.socket = io(SERVER_URL, {
-                transports: ['websocket', 'polling']
+                transports: ['websocket', 'polling'],
+                // Add authentication options here if needed
             });
 
             this.socket.on('connect', () => {

@@ -9,10 +9,18 @@ interface UseWebRTCResult {
     cleanup: () => void;
 }
 
+// INTEGRATION POINT: Configure your STUN/TURN servers here.
+// For production, you should use a TURN server to handle restrictive firewalls.
 const ICE_SERVERS = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        // Add TURN servers here:
+        // {
+        //   urls: 'turn:your-turn-server.com',
+        //   username: 'user',
+        //   credential: 'password'
+        // }
     ],
 };
 

@@ -5,6 +5,10 @@ import type { SignalingEvent } from '../../types';
 import styles from './ParticipantApp.module.css';
 
 interface ParticipantAppProps {
+    /**
+     * INTEGRATION POINT: This ID should come from your authentication system or URL parameters.
+     * It identifies the user to the signaling server.
+     */
     participantId: string;
 }
 
