@@ -10,5 +10,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/vitest.setup.ts',
     css: true,
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/tests/integration/**', // Exclude Playwright integration tests
+      '**/.{idea,git,cache,output,temp}/**',
+    ],
   },
 })
