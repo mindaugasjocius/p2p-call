@@ -246,6 +246,16 @@ export function useWebRTC(receiveOnly: boolean = false): UseWebRTCResult {
             localStream.getTracks().forEach((track) => {
                 pc.addTrack(track, localStream);
             });
+        } else if (receiveOnly) {
+            // Add transceivers for receive-only mode (crucial for mobile/Safari)
+            // Check if transceivers already exist to avoid duplicates
+            const transceivers = pc.getTransceivers();
+            if (!transceivers.find(t => t.receiver.track.kind === 'audio')) {
+                pc.addTransceiver('audio', { direction: 'recvonly' });
+            }
+            if (!transceivers.find(t => t.receiver.track.kind === 'video')) {
+                pc.addTransceiver('video', { direction: 'recvonly' });
+            }
         }
 
         const offerOptions: RTCOfferOptions = {
