@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useWebRTC } from '../../hooks/useWebRTC';
+import { useAnnouncer } from '../../hooks/useAnnouncer';
 import signalingService from '../../services/SignalingService';
 import type { SignalingEvent } from '../../types';
 import styles from './ParticipantApp.module.css';
@@ -27,6 +28,7 @@ export function ParticipantApp({ participantId, participantName, userAgentInfo }
         deviceLabel: string;
     } | null>(null);
     const { localStream, cleanup, replaceTrack, updateLocalStream } = useWebRTC();
+    const { announce } = useAnnouncer();
     const videoRef = useRef<HTMLVideoElement>(null);
     const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
     const [selectedCamera, setSelectedCamera] = useState<string>('');
