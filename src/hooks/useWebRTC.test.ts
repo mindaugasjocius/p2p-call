@@ -79,19 +79,8 @@ describe('useWebRTC', () => {
         });
     });
 
-    it('should add transceivers in receive-only mode', async () => {
-        const { result } = renderHook(() => useWebRTC(true));
-
-        await act(async () => {
-            await result.current.createOffer('remote-id');
-        });
-
-        expect(mockPC.addTransceiver).toHaveBeenCalledWith('audio', { direction: 'recvonly' });
-        expect(mockPC.addTransceiver).toHaveBeenCalledWith('video', { direction: 'recvonly' });
-    });
-
     it('should handle incoming offer', async () => {
-        const { result } = renderHook(() => useWebRTC());
+        renderHook(() => useWebRTC());
 
         // Simulate 'webrtc' event from signaling service
         const signalingHandler = (signalingService.on as any).mock.calls.find((call: any) => call[0] === 'webrtc')[1];

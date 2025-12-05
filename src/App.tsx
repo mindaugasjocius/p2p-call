@@ -3,7 +3,7 @@ import { ParticipantApp } from './components/Participant/ParticipantApp';
 import { ModeratorDashboard } from './components/Moderator/ModeratorDashboard';
 import { InspectionConsole } from './components/Moderator/InspectionConsole';
 import signalingService from './services/SignalingService';
-import { UAParser } from 'ua-parser-js';
+import { useUserAgent } from './hooks/useUserAgent';
 import './App.css';
 
 type Role = 'none' | 'moderator' | 'participant';
@@ -16,11 +16,9 @@ function App() {
   const [myParticipantId, setMyParticipantId] = useState<string>('');
   const [participantName, setParticipantName] = useState<string>('');
   const [showNameInput, setShowNameInput] = useState<boolean>(false);
-  const [userAgentInfo, setUserAgentInfo] = useState<{
-    browser: string;
-    os: string;
-    deviceType: string;
-  } | null>(null);
+
+  // Use custom hook for user agent parsing
+  const userAgentInfo = useUserAgent();
 
   // Connect to signaling server on mount
   useEffect(() => {
@@ -38,17 +36,6 @@ function App() {
   const handleParticipantLogin = async () => {
     // Generate unique ID
     const participantId = `participant-${Date.now()}`;
-
-    // Parse user agent
-    const parser = new UAParser();
-    const result = parser.getResult();
-
-    setUserAgentInfo({
-      browser: `${result.browser.name} ${result.browser.version}`,
-      os: `${result.os.name} ${result.os.version}`,
-      deviceType: result.device.type || 'Desktop',
-    });
-
     setMyParticipantId(participantId);
     setRole('participant');
   };

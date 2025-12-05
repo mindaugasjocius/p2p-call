@@ -13,15 +13,26 @@ A production-ready, drop-in React module for peer-to-peer video screening and in
 
 ## 🏗 Architecture
 
-The system consists of three main parts:
+The system is designed with clear separation of concerns, making it easy to integrate or migrate to different UI frameworks:
 
-1.  **Signaling Server (`/server`)**: A lightweight Node.js/Socket.io server that coordinates connections. It does **not** handle media traffic, only connection metadata.
-2.  **Frontend Services**:
-    *   `SignalingService`: Singleton handling WebSocket connections.
-    *   `useWebRTC`: Custom hook managing the complex WebRTC state machine.
-3.  **UI Components**:
-    *   `ParticipantApp`: The user-facing video interface.
-    *   `InspectionConsole`: The admin/moderator interface.
+### Backend Layer
+1.  **Signaling Server (`/server`)**: A lightweight Node.js/Socket.io server that coordinates WebRTC connections. It does **not** handle media traffic, only connection metadata and signaling events.
+
+### Service Layer (Framework-Agnostic)
+2.  **`SignalingService`** (`src/services/SignalingService.ts`): Singleton managing WebSocket connections and event handling. Pure TypeScript with no UI dependencies.
+3.  **`useWebRTC`** (`src/hooks/useWebRTC.ts`): Custom hook encapsulating the complex WebRTC state machine (peer connections, ICE candidates, SDP negotiation). Can be ported to Vue Composition API or other frameworks.
+4.  **`useUserAgent`** (`src/hooks/useUserAgent.ts`): Hook for parsing user agent information. Demonstrates the pattern of extracting business logic from UI components.
+
+### UI Layer (React-Specific)
+5.  **`ParticipantApp`** (`src/components/Participant/ParticipantApp.tsx`): User-facing video interface with state management and device controls.
+6.  **`InspectionConsole`** (`src/components/Moderator/InspectionConsole.tsx`): Admin/moderator interface for inspecting participants.
+7.  **`ModeratorDashboard`** (`src/components/Moderator/ModeratorDashboard.tsx`): Queue management interface.
+
+### Modularity Notes
+- **Services and hooks** contain all business logic and can be reused in any UI framework
+- **Components** are thin presentation layers that consume hooks and services
+- **Types** (`src/types.ts`) are shared across all layers
+- **Styling** uses CSS modules for easy replacement with any styling system
 
 ## 📦 Integration Guide
 
@@ -123,12 +134,114 @@ const ICE_SERVERS = {
 ### Styling
 All styles are modular CSS (`*.module.css`). You can easily replace them with Tailwind classes or your own design system.
 
+## 🔄 Migrating to Other UI Frameworks
+
+The codebase is designed to make UI framework migration straightforward. Here's how to port to other frameworks:
+
+### Vue 3 Example
+The service layer and hooks can be reused with minimal changes:
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
+import signalingService from '@/services/SignalingService';
+import { useWebRTC } from '@/hooks/useWebRTC'; // Port to Composition API
+import { useUserAgent } from '@/hooks/useUserAgent';
+
+const participantId = ref('participant-123');
+const userAgentInfo = useUserAgent();
+const { localStream, remoteStream, cleanup } = useWebRTC();
+
+onMounted(async () => {
+  await signalingService.connect();
+  // ... rest of logic
+});
+
+onUnmounted(() => {
+  cleanup();
+  signalingService.disconnect();
+});
+</script>
+
+<template>
+  <div class="participant-container">
+    <video ref="videoRef" autoplay playsinline></video>
+  </div>
+</template>
+```
+
+### Svelte Example
+```svelte
+<script lang="ts">
+import { onMount, onDestroy } from 'svelte';
+import signalingService from './services/SignalingService';
+import { useWebRTC } from './hooks/useWebRTC'; // Adapt to Svelte stores
+
+let videoElement: HTMLVideoElement;
+const { localStream, remoteStream, cleanup } = useWebRTC();
+
+onMount(async () => {
+  await signalingService.connect();
+});
+
+onDestroy(() => {
+  cleanup();
+  signalingService.disconnect();
+});
+</script>
+
+<video bind:this={videoElement} autoplay playsinline></video>
+```
+
+### Key Migration Steps
+1. **Keep Services As-Is**: `SignalingService` is pure TypeScript - copy directly
+2. **Adapt Hooks**: Convert React hooks to your framework's reactive primitives (Vue Composition API, Svelte stores, Angular services)
+3. **Rebuild UI**: Use the same state and methods, just different templates/JSX
+4. **Reuse Types**: `src/types.ts` works across all frameworks
+
 ## 🛠 Troubleshooting
 
 *   **Black Screen?** Ensure you are not trying to access the same camera from two tabs on the same browser. Use different devices or a virtual camera.
 *   **Connection Failed?** Check if the signaling server is reachable.
     *   **Vercel Error**: If you see `WebSocket connection to 'wss://...vercel.app/...' failed`, it means you haven't deployed the backend separately. Vercel only hosts the frontend. You must deploy the `/server` folder to Render/Railway and update `VITE_SIGNALING_SERVER_URL`.
 *   **Permissions Error?** Browsers require HTTPS for camera access on non-localhost domains. Use a tunneling service (like ngrok) or setup local HTTPS for testing on mobile.
+
+## 🧪 Testing
+
+The project includes comprehensive test coverage:
+
+### Unit Tests (Vitest + React Testing Library)
+```bash
+npm test
+```
+
+Tests cover:
+- `SignalingService` - Connection, event handling, mute status
+- `useWebRTC` - Peer connection, offer/answer, ICE candidates
+- `ParticipantApp` - State transitions, queue joining
+- `App` - Role selection, navigation
+
+### Integration Tests (Playwright)
+```bash
+# Start dev servers first
+npm run dev          # Terminal 1
+npm run dev:server   # Terminal 2
+
+# Run integration tests
+npm run test:integration
+```
+
+Tests cover:
+- Complete participant-moderator workflow
+- WebRTC connection establishment
+- Mute synchronization (bidirectional)
+- Queue management and auto-advance
+- Device switching (planned)
+
+### Test Architecture
+- **Unit tests** mock WebRTC and Socket.io for fast, isolated testing
+- **Integration tests** use real browsers and WebRTC connections for end-to-end validation
+- All tests run in CI/CD pipeline
 
 ## 📄 License
 

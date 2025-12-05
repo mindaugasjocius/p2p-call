@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ParticipantApp } from './ParticipantApp';
 import signalingService from '../../services/SignalingService';
@@ -46,7 +46,7 @@ describe('ParticipantApp', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         // Mock navigator.mediaDevices
-        Object.defineProperty(global.navigator, 'mediaDevices', {
+        Object.defineProperty(window.navigator, 'mediaDevices', {
             value: {
                 enumerateDevices: vi.fn().mockResolvedValue([
                     { deviceId: 'cam1', kind: 'videoinput', label: 'Camera 1' },
