@@ -116,6 +116,24 @@ export function ParticipantApp({ participantId, participantName, userAgentInfo }
         };
     }, [participantId, devices, cleanup, localStream, currentStream, isMuted, moderatorSocketId, userAgentInfo]);
 
+    // Announce state changes to screen readers
+    useEffect(() => {
+        switch (state) {
+            case 'waiting':
+                announce('Waiting for host to start inspection');
+                break;
+            case 'inspecting':
+                announce('Inspection in progress. The moderator is reviewing your audio and video quality.');
+                break;
+            case 'admitted':
+                announce('You have been admitted to the session');
+                break;
+            case 'removed':
+                announce('You have been removed from the queue');
+                break;
+        }
+    }, [state, announce]);
+
     // Join queue ONLY when local stream is ready
     useEffect(() => {
         if (localStream && !hasJoined) {
@@ -322,15 +340,18 @@ export function ParticipantApp({ participantId, participantName, userAgentInfo }
                             playsInline
                             muted
                             className={styles.video}
+                            aria-label="Your video preview"
                         />
                         <div className={styles.videoLabel}>Your Video</div>
 
                         {/* Mute Button */}
                         <button
-                            className={`${styles.muteButton} ${isMuted ? styles.muted : ''}`}
                             onClick={toggleMute}
-                            title={isMuted ? 'Unmute' : 'Mute'}
+                            className={`${styles.controlButton} ${isMuted ? styles.muted : ''}`}
+                            aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+                            aria-pressed={isMuted}
                         >
+                            {isMuted ? '🔇 Unmute' : '🔊 Mute'}
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
                                 <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
@@ -347,6 +368,7 @@ export function ParticipantApp({ participantId, participantName, userAgentInfo }
                                 className={styles.deviceSelect}
                                 value={selectedCamera}
                                 onChange={handleCameraChange}
+                                aria-label="Select camera"
                             >
                                 {videoDevices.map((device) => (
                                     <option key={device.deviceId} value={device.deviceId}>
@@ -362,6 +384,7 @@ export function ParticipantApp({ participantId, participantName, userAgentInfo }
                                 className={styles.deviceSelect}
                                 value={selectedMic}
                                 onChange={handleMicChange}
+                                aria-label="Select microphone"
                             >
                                 {audioDevices.map((device) => (
                                     <option key={device.deviceId} value={device.deviceId}>
@@ -378,10 +401,16 @@ export function ParticipantApp({ participantId, participantName, userAgentInfo }
 
                     {/* Device Suggestion Modal */}
                     {deviceSuggestion && (
-                        <div className={styles.modal}>
+                        <div
+                            className={styles.modal}
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="suggestion-title"
+                            aria-describedby="suggestion-description"
+                        >
                             <div className={styles.modalContent}>
-                                <h3 className={styles.modalTitle}>Device Change Suggested</h3>
-                                <p className={styles.modalMessage}>
+                                <h3 id="suggestion-title" className={styles.modalTitle}>Device Change Suggested</h3>
+                                <p id="suggestion-description" className={styles.modalMessage}>
                                     The moderator suggests switching to:
                                     <br />
                                     <strong>{deviceSuggestion.deviceLabel}</strong>
@@ -390,12 +419,14 @@ export function ParticipantApp({ participantId, participantName, userAgentInfo }
                                     <button
                                         className="ds-button ds-button-primary"
                                         onClick={handleAcceptSuggestion}
+                                        aria-label="Accept device suggestion"
                                     >
                                         Allow
                                     </button>
                                     <button
                                         className="ds-button ds-button-secondary"
                                         onClick={handleDeclineSuggestion}
+                                        aria-label="Decline device suggestion"
                                     >
                                         Decline
                                     </button>

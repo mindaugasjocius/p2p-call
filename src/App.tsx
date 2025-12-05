@@ -65,7 +65,10 @@ function App() {
   if (role === 'none') {
     return (
       <div className="ds-landing">
-        <div className="ds-landing-content">
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        <div id="main-content" className="ds-landing-content">
           <h1 className="ds-heading">P2P Screening Room</h1>
 
           {!showNameInput ? (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useWebRTC } from '../../hooks/useWebRTC';
+import { useAnnouncer } from '../../hooks/useAnnouncer';
 import signalingService from '../../services/SignalingService';
 import type { Participant, SignalingEvent } from '../../types';
 import styles from './InspectionConsole.module.css';
@@ -21,14 +22,15 @@ export function InspectionConsole({
         os: string;
         deviceType: string;
     } | null>(null);
+    const [participantSocketId, setParticipantSocketId] = useState<string | null>(null);
+    const [isParticipantMuted, setIsParticipantMuted] = useState<boolean>(false);
     // Use receive-only mode for moderator (don't request camera/mic)
     const { remoteStream, createOffer, cleanup } = useWebRTC(true);
-    const remoteVideoRef = useRef<HTMLVideoElement>(null);
-    const [isParticipantMuted, setIsParticipantMuted] = useState<boolean>(false);
+    const { announce } = useAnnouncer();
+    const videoRef = useRef<HTMLVideoElement>(null);
     const [devices, setDevices] = useState<any[]>([]);
     const [selectedCamera, setSelectedCamera] = useState<string>('');
     const [selectedMic, setSelectedMic] = useState<string>('');
-    const [participantSocketId, setParticipantSocketId] = useState<string | null>(null);
 
     useEffect(() => {
         // Get participant info from server
@@ -96,22 +98,30 @@ export function InspectionConsole({
 
     // Set up remote video element
     useEffect(() => {
-        if (remoteVideoRef.current && remoteStream) {
-            remoteVideoRef.current.srcObject = remoteStream;
+        if (videoRef.current && remoteStream) {
+            videoRef.current.srcObject = remoteStream;
             console.log('Moderator: Remote stream set to video element');
+        }
+    }, [remoteStream]);
+
+    // Clean up video element when stream is removed
+    useEffect(() => {
+        if (remoteStream === null && videoRef.current?.srcObject) {
+            videoRef.current.srcObject = null;
         }
     }, [remoteStream]);
 
     // Handle participant disconnect
     useEffect(() => {
         // If remote stream is lost (participant disconnected), go back to dashboard
-        if (remoteStream === null && remoteVideoRef.current?.srcObject) {
+        if (remoteStream === null && videoRef.current?.srcObject) {
             console.log('Participant disconnected, returning to dashboard');
+            announce('Participant disconnected');
             setTimeout(() => {
                 onBack();
             }, 2000); // Give 2 seconds to show "connection lost" message
         }
-    }, [remoteStream, onBack]);
+    }, [remoteStream, onBack, announce]);
 
     const toggleParticipantMute = () => {
         if (participantSocketId) {
@@ -174,7 +184,11 @@ export function InspectionConsole({
             <div className={styles.console}>
                 <header className={styles.header}>
                     <h1 className="ds-heading">Inspection Console</h1>
-                    <button className="ds-button ds-button-secondary" onClick={handleCancel}>
+                    <button
+                        className="ds-button ds-button-secondary"
+                        onClick={handleCancel}
+                        aria-label="Cancel inspection and return to dashboard"
+                    >
                         Cancel
                     </button>
                 </header>
@@ -184,10 +198,11 @@ export function InspectionConsole({
                     <div className={styles.videoSection}>
                         <div className={styles.videoContainer}>
                             <video
-                                ref={remoteVideoRef}
+                                ref={videoRef}
                                 autoPlay
                                 playsInline
                                 className={styles.video}
+                                aria-label={`Video feed from ${participant?.name || 'participant'}`}
                             />
 
                             {/* User Info Overlay */}
@@ -210,7 +225,8 @@ export function InspectionConsole({
                             <button
                                 className={`${styles.muteButton} ${isParticipantMuted ? styles.muted : ''}`}
                                 onClick={toggleParticipantMute}
-                                title={isParticipantMuted ? 'Unmute Participant' : 'Mute Participant'}
+                                aria-label={isParticipantMuted ? "Unmute participant" : "Mute participant"}
+                                aria-pressed={isParticipantMuted}
                             >
                                 <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
@@ -225,12 +241,14 @@ export function InspectionConsole({
                             <button
                                 className="ds-button ds-button-success"
                                 onClick={handleAdmit}
+                                aria-label="Admit participant to session"
                             >
                                 ✓ Admit
                             </button>
                             <button
                                 className="ds-button ds-button-danger"
                                 onClick={handleRemove}
+                                aria-label="Remove participant from queue"
                             >
                                 ✕ Remove
                             </button>
