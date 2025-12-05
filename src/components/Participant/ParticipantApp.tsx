@@ -112,7 +112,7 @@ export function ParticipantApp({ participantId, participantName, userAgentInfo }
         return () => {
             signalingService.off('participant', handleSignalingEvent);
         };
-    }, [participantId, devices, cleanup]);
+    }, [participantId, devices, cleanup, localStream, currentStream, isMuted, moderatorSocketId, userAgentInfo]);
 
     // Join queue ONLY when local stream is ready
     useEffect(() => {
