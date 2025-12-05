@@ -22,6 +22,10 @@ class SignalingService {
         return SignalingService.instance;
     }
 
+    getSocketId(): string | null {
+        return this.mySocketId;
+    }
+
     /**
      * Connects to the signaling server.
      * INTEGRATION POINT: Replace this with your own authentication/connection logic.
