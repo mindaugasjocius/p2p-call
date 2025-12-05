@@ -25,13 +25,12 @@ export function InspectionConsole({
     const [devices, setDevices] = useState<any[]>([]);
     const [selectedCamera, setSelectedCamera] = useState<string>('');
     const [selectedMic, setSelectedMic] = useState<string>('');
+    const [participantSocketId, setParticipantSocketId] = useState<string | null>(null);
 
     useEffect(() => {
         // Get participant info from server
+        // Get participant info from server
         const loadParticipant = async () => {
-            const parser = new UAParser();
-            setUserAgent(parser.getResult());
-
             setParticipant({
                 id: participantId,
                 name: 'Participant',
@@ -48,6 +47,7 @@ export function InspectionConsole({
         const handleSignalingEvent = (event: SignalingEvent) => {
             if (event.type === 'inspectionReady' && event.participantSocketId) {
                 console.log('Inspection ready, creating offer to:', event.participantSocketId);
+                setParticipantSocketId(event.participantSocketId);
                 // Create WebRTC offer to participant
                 createOffer(event.participantSocketId);
             }
@@ -63,6 +63,17 @@ export function InspectionConsole({
 
                 if (firstCamera) setSelectedCamera(firstCamera.deviceId);
                 if (firstMic) setSelectedMic(firstMic.deviceId);
+            }
+
+            // Receive participant info (UA)
+            if (event.type === 'participantInfo' && event.userAgent) {
+                const parser = new UAParser(event.userAgent);
+                setUserAgent(parser.getResult());
+            }
+
+            // Receive mute status
+            if (event.type === 'muteStatus') {
+                setIsParticipantMuted(!!event.isMuted);
             }
 
             // Handle participant disconnect
@@ -101,13 +112,10 @@ export function InspectionConsole({
     }, [remoteStream, onBack]);
 
     const toggleParticipantMute = () => {
-        if (remoteStream) {
-            const audioTracks = remoteStream.getAudioTracks();
-            audioTracks.forEach(track => {
-                track.enabled = !track.enabled;
-            });
-            setIsParticipantMuted(!isParticipantMuted);
-            console.log('Participant audio', isParticipantMuted ? 'unmuted' : 'muted');
+        if (participantSocketId) {
+            const newMuted = !isParticipantMuted;
+            signalingService.requestMute(participantSocketId, newMuted);
+            setIsParticipantMuted(newMuted);
         }
     };
 

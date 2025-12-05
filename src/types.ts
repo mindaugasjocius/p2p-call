@@ -25,7 +25,10 @@ export type SignalingEventType =
   | 'queueUpdated'
   | 'offer'
   | 'answer'
-  | 'ice-candidate';
+  | 'ice-candidate'
+  | 'muteStatus'
+  | 'muteRequest'
+  | 'participantInfo';
 
 export interface SignalingEvent {
   type: SignalingEventType;
@@ -40,4 +43,7 @@ export interface SignalingEvent {
   answer?: RTCSessionDescriptionInit;
   candidate?: RTCIceCandidate;
   from?: string;
+  isMuted?: boolean;
+  mute?: boolean;
+  userAgent?: string;
 }

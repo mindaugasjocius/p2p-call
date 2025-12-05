@@ -153,6 +153,31 @@ class SignalingService {
                 from,
             });
         });
+
+        // Mute synchronization
+        this.socket.on('mute:status', ({ from, isMuted }: { from: string; isMuted: boolean }) => {
+            this.emitLocal('moderator', {
+                type: 'muteStatus',
+                participantSocketId: from,
+                isMuted,
+            });
+        });
+
+        this.socket.on('mute:request', ({ from, mute }: { from: string; mute: boolean }) => {
+            this.emitLocal('participant', {
+                type: 'muteRequest',
+                mute,
+            });
+        });
+
+        // Participant Info (UA)
+        this.socket.on('participant:info', ({ from, userAgent }: { from: string; userAgent: string }) => {
+            this.emitLocal('moderator', {
+                type: 'participantInfo',
+                participantSocketId: from,
+                userAgent,
+            });
+        });
     }
 
     getSocket(): Socket | null {
@@ -275,6 +300,23 @@ class SignalingService {
             groupId: d.groupId
         }));
         this.socket.emit('devices:share', { to, devices: deviceList });
+    }
+
+    // Mute synchronization
+    sendMuteStatus(to: string, isMuted: boolean): void {
+        if (!this.socket) return;
+        this.socket.emit('mute:status', { to, isMuted });
+    }
+
+    requestMute(to: string, mute: boolean): void {
+        if (!this.socket) return;
+        this.socket.emit('mute:request', { to, mute });
+    }
+
+    // Participant Info
+    sendParticipantInfo(to: string, info: { userAgent: string }): void {
+        if (!this.socket) return;
+        this.socket.emit('participant:info', { to, ...info });
     }
 
     // WebRTC signaling

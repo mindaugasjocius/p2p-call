@@ -27,6 +27,7 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
     const [selectedMic, setSelectedMic] = useState<string>('');
     const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
     const [isMuted, setIsMuted] = useState<boolean>(false);
+    const [moderatorSocketId, setModeratorSocketId] = useState<string | null>(null);
 
     // Signaling effect - re-runs when dependencies change
     useEffect(() => {
@@ -36,11 +37,19 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
 
             switch (event.type) {
                 case 'inspectionStarted':
-                    setState('inspecting');
-                    // Share device list with moderator
-                    if (event.moderatorSocketId && devices.length > 0) {
-                        signalingService.shareDevices(event.moderatorSocketId, devices);
-                        console.log('Shared device list with moderator');
+                    if (event.moderatorSocketId) {
+                        setModeratorSocketId(event.moderatorSocketId);
+                        setState('inspecting');
+
+                        // Share devices with moderator
+                        if (devices.length > 0) {
+                            signalingService.shareDevices(event.moderatorSocketId, devices);
+                        }
+
+                        // Share User Agent
+                        signalingService.sendParticipantInfo(event.moderatorSocketId, {
+                            userAgent: navigator.userAgent
+                        });
                     }
                     break;
                 case 'admitted':
@@ -64,6 +73,28 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
                             deviceId: event.deviceId,
                             deviceLabel: event.deviceLabel,
                         });
+                    }
+                    break;
+                case 'muteRequest':
+                    // Moderator requested mute/unmute
+                    if (currentStream) {
+                        const audioTrack = currentStream.getAudioTracks()[0];
+                        if (audioTrack) {
+                            const shouldMute = event.mute ?? !isMuted;
+                            audioTrack.enabled = !shouldMute;
+                            setIsMuted(shouldMute);
+
+                            // Also mute local stream track if different
+                            if (localStream && localStream !== currentStream) {
+                                const localAudio = localStream.getAudioTracks()[0];
+                                if (localAudio) localAudio.enabled = !shouldMute;
+                            }
+
+                            // Ack back to moderator
+                            if (event.moderatorSocketId || moderatorSocketId) {
+                                signalingService.sendMuteStatus(event.moderatorSocketId || moderatorSocketId!, shouldMute);
+                            }
+                        }
                     }
                     break;
             }
@@ -93,6 +124,17 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
                 const deviceList = await navigator.mediaDevices.enumerateDevices();
                 const filteredDevices = deviceList.filter(d => d.kind === 'videoinput' || d.kind === 'audioinput');
                 setDevices(filteredDevices);
+
+                // Set initial selection if empty
+                if (!selectedCamera) {
+                    const cam = filteredDevices.find(d => d.kind === 'videoinput');
+                    if (cam) setSelectedCamera(cam.deviceId);
+                }
+                if (!selectedMic) {
+                    const mic = filteredDevices.find(d => d.kind === 'audioinput');
+                    if (mic) setSelectedMic(mic.deviceId);
+                }
+
                 console.log('Enumerated devices after permission:', filteredDevices.length);
             } catch (err) {
                 console.error('Error enumerating devices:', err);
@@ -118,11 +160,16 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
 
     const switchDevice = async (videoDeviceId?: string, audioDeviceId?: string) => {
         console.log('Switching device...', { videoDeviceId, audioDeviceId });
+
+        // Use provided ID, or fallback to currently selected ID to preserve non-switched device
+        const targetVideoId = videoDeviceId ?? selectedCamera;
+        const targetAudioId = audioDeviceId ?? selectedMic;
+
         try {
             // Get new stream with specified devices
             const constraints: MediaStreamConstraints = {
-                video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : true,
-                audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true,
+                video: targetVideoId ? { deviceId: { exact: targetVideoId } } : true,
+                audio: targetAudioId ? { deviceId: { exact: targetAudioId } } : true,
             };
 
             console.log('Requesting new stream with constraints:', constraints);
@@ -133,11 +180,12 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
             const videoTrack = newStream.getVideoTracks()[0];
             const audioTrack = newStream.getAudioTracks()[0];
 
-            if (videoTrack && videoDeviceId) {
+            // Always replace tracks if we got new ones, regardless of which device changed
+            if (videoTrack) {
                 console.log('Replacing video track:', videoTrack.id);
                 await replaceTrack(videoTrack, 'video');
             }
-            if (audioTrack && audioDeviceId) {
+            if (audioTrack) {
                 console.log('Replacing audio track:', audioTrack.id);
                 await replaceTrack(audioTrack, 'audio');
             }
