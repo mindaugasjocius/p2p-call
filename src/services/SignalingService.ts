@@ -171,11 +171,11 @@ class SignalingService {
         });
 
         // Participant Info (UA)
-        this.socket.on('participant:info', ({ from, userAgent }: { from: string; userAgent: string }) => {
+        this.socket.on('participant:info', ({ from, userInfo }: { from: string; userInfo: any }) => {
             this.emitLocal('moderator', {
                 type: 'participantInfo',
                 participantSocketId: from,
-                userAgent,
+                userInfo,
             });
         });
     }
@@ -314,7 +314,7 @@ class SignalingService {
     }
 
     // Participant Info
-    sendParticipantInfo(to: string, info: { userAgent: string }): void {
+    sendParticipantInfo(to: string, info: { userInfo: any }): void {
         if (!this.socket) return;
         this.socket.emit('participant:info', { to, ...info });
     }

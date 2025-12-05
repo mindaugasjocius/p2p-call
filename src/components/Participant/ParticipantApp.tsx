@@ -55,7 +55,7 @@ export function ParticipantApp({ participantId, participantName, userAgentInfo }
 
                         // Share User Agent
                         signalingService.sendParticipantInfo(event.moderatorSocketId, {
-                            userAgent: navigator.userAgent
+                            userInfo: userAgentInfo
                         });
                     }
                     break;

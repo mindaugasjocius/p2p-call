@@ -204,6 +204,32 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Mute synchronization
+    socket.on('mute:status', ({ to, isMuted }) => {
+        console.log(`Relaying mute status from ${socket.id} to ${to}: ${isMuted}`);
+        io.to(to).emit('mute:status', {
+            from: socket.id,
+            isMuted
+        });
+    });
+
+    socket.on('mute:request', ({ to, mute }) => {
+        console.log(`Relaying mute request from ${socket.id} to ${to}: ${mute}`);
+        io.to(to).emit('mute:request', {
+            from: socket.id,
+            mute
+        });
+    });
+
+    // Participant Info
+    socket.on('participant:info', ({ to, userInfo }) => {
+        console.log(`Relaying participant info from ${socket.id} to ${to}`);
+        io.to(to).emit('participant:info', {
+            from: socket.id,
+            userInfo
+        });
+    });
+
     // Disconnect
     socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);

@@ -45,5 +45,9 @@ export interface SignalingEvent {
   from?: string;
   isMuted?: boolean;
   mute?: boolean;
-  userAgent?: string;
+  userInfo?: {
+    browser: string;
+    os: string;
+    deviceType: string;
+  };
 }

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useWebRTC } from '../../hooks/useWebRTC';
 import signalingService from '../../services/SignalingService';
 import type { Participant, SignalingEvent } from '../../types';
-import { UAParser } from 'ua-parser-js';
 import styles from './InspectionConsole.module.css';
 
 interface InspectionConsoleProps {
@@ -17,7 +16,11 @@ export function InspectionConsole({
     onAutoAdvance,
 }: InspectionConsoleProps) {
     const [participant, setParticipant] = useState<Participant | null>(null);
-    const [userAgent, setUserAgent] = useState<UAParser.IResult | null>(null);
+    const [userInfo, setUserInfo] = useState<{
+        browser: string;
+        os: string;
+        deviceType: string;
+    } | null>(null);
     // Use receive-only mode for moderator (don't request camera/mic)
     const { remoteStream, createOffer, cleanup } = useWebRTC(true);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -66,9 +69,8 @@ export function InspectionConsole({
             }
 
             // Receive participant info (UA)
-            if (event.type === 'participantInfo' && event.userAgent) {
-                const parser = new UAParser(event.userAgent);
-                setUserAgent(parser.getResult());
+            if (event.type === 'participantInfo' && event.userInfo) {
+                setUserInfo(event.userInfo);
             }
 
             // Receive mute status
@@ -193,13 +195,13 @@ export function InspectionConsole({
                                 <h3 className={styles.participantName}>{participant.name}</h3>
                                 <div className={styles.infoGrid}>
                                     <div className={styles.infoItem}>
-                                        <strong>Browser:</strong> {userAgent?.browser.name} {userAgent?.browser.version}
+                                        <strong>Browser:</strong> {userInfo?.browser || 'Unknown'}
                                     </div>
                                     <div className={styles.infoItem}>
-                                        <strong>OS:</strong> {userAgent?.os.name} {userAgent?.os.version}
+                                        <strong>OS:</strong> {userInfo?.os || 'Unknown'}
                                     </div>
                                     <div className={styles.infoItem}>
-                                        <strong>Device:</strong> {userAgent?.device.type || 'Desktop'}
+                                        <strong>Device:</strong> {userInfo?.deviceType || 'Desktop'}
                                     </div>
                                 </div>
                             </div>
