@@ -163,7 +163,7 @@ class SignalingService {
             });
         });
 
-        this.socket.on('mute:request', ({ from, mute }: { from: string; mute: boolean }) => {
+        this.socket.on('mute:request', ({ mute }: { from: string; mute: boolean }) => {
             this.emitLocal('participant', {
                 type: 'muteRequest',
                 mute,
