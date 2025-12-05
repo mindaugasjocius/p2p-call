@@ -16,6 +16,11 @@ function App() {
   const [myParticipantId, setMyParticipantId] = useState<string>('');
   const [participantName, setParticipantName] = useState<string>('');
   const [showNameInput, setShowNameInput] = useState<boolean>(false);
+  const [userAgentInfo, setUserAgentInfo] = useState<{
+    browser: string;
+    os: string;
+    deviceType: string;
+  } | null>(null);
 
   // Connect to signaling server on mount
   useEffect(() => {
@@ -30,7 +35,7 @@ function App() {
   }, []);
 
   // Register participant when they submit their name
-  const handleParticipantLogin = async (name: string) => {
+  const handleParticipantLogin = async () => {
     // Generate unique ID
     const participantId = `participant-${Date.now()}`;
 
@@ -38,10 +43,7 @@ function App() {
     const parser = new UAParser();
     const result = parser.getResult();
 
-    // Join as participant via WebSocket
-    signalingService.joinAsParticipant({
-      id: participantId,
-      name: name || 'Anonymous',
+    setUserAgentInfo({
       browser: `${result.browser.name} ${result.browser.version}`,
       os: `${result.os.name} ${result.os.version}`,
       deviceType: result.device.type || 'Desktop',
@@ -54,7 +56,7 @@ function App() {
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (participantName.trim()) {
-      handleParticipantLogin(participantName.trim());
+      handleParticipantLogin();
     }
   };
 
@@ -139,7 +141,17 @@ function App() {
 
   // Participant view
   if (role === 'participant') {
-    return <ParticipantApp participantId={myParticipantId} />;
+    return (
+      <ParticipantApp
+        participantId={myParticipantId}
+        participantName={participantName}
+        userAgentInfo={userAgentInfo || {
+          browser: 'Unknown',
+          os: 'Unknown',
+          deviceType: 'Desktop'
+        }}
+      />
+    );
   }
 
   // Moderator view

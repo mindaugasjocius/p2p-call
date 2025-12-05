@@ -10,11 +10,17 @@ interface ParticipantAppProps {
      * It identifies the user to the signaling server.
      */
     participantId: string;
+    participantName: string;
+    userAgentInfo: {
+        browser: string;
+        os: string;
+        deviceType: string;
+    };
 }
 
 type ParticipantState = 'waiting' | 'inspecting' | 'admitted' | 'removed';
 
-export function ParticipantApp({ participantId }: ParticipantAppProps) {
+export function ParticipantApp({ participantId, participantName, userAgentInfo }: ParticipantAppProps) {
     const [state, setState] = useState<ParticipantState>('waiting');
     const [deviceSuggestion, setDeviceSuggestion] = useState<{
         deviceId: string;
@@ -28,6 +34,7 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
     const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
     const [isMuted, setIsMuted] = useState<boolean>(false);
     const [moderatorSocketId, setModeratorSocketId] = useState<string | null>(null);
+    const [hasJoined, setHasJoined] = useState<boolean>(false);
 
     // Signaling effect - re-runs when dependencies change
     useEffect(() => {
@@ -106,6 +113,19 @@ export function ParticipantApp({ participantId }: ParticipantAppProps) {
             signalingService.off('participant', handleSignalingEvent);
         };
     }, [participantId, devices, cleanup]);
+
+    // Join queue ONLY when local stream is ready
+    useEffect(() => {
+        if (localStream && !hasJoined) {
+            console.log('Local stream ready, joining queue...');
+            signalingService.joinAsParticipant({
+                id: participantId,
+                name: participantName,
+                ...userAgentInfo
+            });
+            setHasJoined(true);
+        }
+    }, [localStream, hasJoined, participantId, participantName, userAgentInfo]);
 
     // Cleanup effect - runs only on mount/unmount
     useEffect(() => {
